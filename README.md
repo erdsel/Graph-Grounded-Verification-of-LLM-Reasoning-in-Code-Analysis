@@ -1,7 +1,7 @@
 # Graph-Grounded Verification of LLM Reasoning in Code Analysis
 
 <p align="center">
-  <img src="gorsel/logo.png" alt="Project Logo" width="200"/>
+  
 </p>
 
 <p align="center">
@@ -21,16 +21,7 @@
 
 ---
 
-## Proje Bilgileri
 
-| | |
-|---|---|
-| **Ogrenci** | Selen Erdogan |
-| **Ogrenci No** | 210104004131 |
-| **Universite** | Gebze Teknik Universitesi |
-| **Bolum** | Bilgisayar Muhendisligi |
-| **Ders** | NLP (Dogal Dil Isleme) |
-| **Donem** | 2024-2025 Guz |
 
 ---
 
