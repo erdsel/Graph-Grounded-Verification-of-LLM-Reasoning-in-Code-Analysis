@@ -1,0 +1,680 @@
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Doğrulama Raporu</title>
+
+    <!-- Bootstrap CSS (CDN) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+        }
+
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+
+        .metric-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .status-valid {
+            color: var(--success-color);
+        }
+
+        .status-hallucination {
+            color: var(--danger-color);
+        }
+
+        .status-unverifiable {
+            color: var(--warning-color);
+        }
+
+        .status-partial {
+            color: var(--info-color);
+        }
+
+        .hallucination-card {
+            border-left: 4px solid var(--danger-color);
+            background: #fff5f5;
+        }
+
+        .valid-card {
+            border-left: 4px solid var(--success-color);
+            background: #f0fff4;
+        }
+
+        .claim-table th {
+            background-color: #343a40;
+            color: white;
+        }
+
+        .badge-valid { background-color: var(--success-color); }
+        .badge-hallucination { background-color: var(--danger-color); }
+        .badge-unverifiable { background-color: var(--warning-color); }
+        .badge-partial { background-color: var(--info-color); }
+
+        .assessment-badge {
+            font-size: 1.2rem;
+            padding: 0.5rem 1rem;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 10px;
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .recommendation {
+            background: #e7f3ff;
+            border-left: 4px solid #0d6efd;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 0 5px 5px 0;
+        }
+
+        .footer {
+            background: #343a40;
+            color: white;
+            padding: 2rem 0;
+            margin-top: 3rem;
+        }
+
+        pre {
+            background: #f4f4f4;
+            padding: 1rem;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="container">
+            <h1><i class="bi bi-shield-check"></i> LLM Doğrulama Raporu</h1>
+            <p class="mb-0">Graph-Grounded Verification of LLM Reasoning</p>
+            <small>Oluşturulma: 2025-12-15 14:57:46</small>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Genel Değerlendirme -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="metric-card text-center">
+                    <h3>Genel Değerlendirme</h3>
+                    <span class="assessment-badge badge
+                        bg-success
+                        ">
+                        MÜKEMMEL
+                    </span>
+                    <p class="mt-2 mb-0">
+                        <strong>16</strong> iddia analiz edildi,
+                        <strong class="text-danger">0</strong> halüsinasyon tespit edildi.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ana Metrikler -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value status-hallucination">
+                        0.0%
+                    </div>
+                    <div class="metric-label">Halüsinasyon Oranı</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value status-valid">
+                        100.0%
+                    </div>
+                    <div class="metric-label">Geçerlilik Oranı</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value text-primary">
+                        16
+                    </div>
+                    <div class="metric-label">Doğrulanan İddia</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value text-danger">
+                        0
+                    </div>
+                    <div class="metric-label">Halüsinasyon</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grafikler -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5>Sonuç Dağılımı</h5>
+                    <canvas id="resultChart"></canvas>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5>Claim Türü Analizi</h5>
+                    <canvas id="typeChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Halüsinasyonlar -->
+        
+
+        <!-- Tüm Claim'ler Tablosu -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h3>Tüm İddialar</h3>
+                <div class="table-responsive">
+                    <table class="table table-striped claim-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Tür</th>
+                                <th>İddia</th>
+                                <th>Sonuç</th>
+                                <th>Güven</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+                            <tr>
+                                <td>1</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>Function add exists</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>2</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>add calls _log_operation</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>3</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>add calls _validate</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>4</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>Function multiply exists</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>5</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>multiply calls _log_operation</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>6</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>multiply calls _validate</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>7</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>Function _validate exists</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>8</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>Function _log_operation exists</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>9</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>Function process_numbers exists</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>10</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>process_numbers calls add</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>11</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>Function generate_report exists</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>12</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>Function main exists</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>13</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>main calls process_numbers</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>14</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>main calls generate_report</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>15</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>main calls save_to_file</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>16</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>Function save_to_file exists</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Öneriler -->
+        
+        <div class="row mb-4">
+            <div class="col-12">
+                <h3><i class="bi bi-lightbulb"></i> Öneriler</h3>
+                
+                <div class="recommendation">✅ LLM çıktıları genel olarak güvenilir görünüyor. Yine de kritik kararlar için manuel doğrulama önerilir.</div>
+                
+            </div>
+        </div>
+        
+
+        <!-- Metrik Detayları -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h3>Detaylı Metrikler</h3>
+                <div class="accordion" id="metricsAccordion">
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#metric1">
+                                hallucination_rate: 0.00
+                            </button>
+                        </h2>
+                        <div id="metric1" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <p>Halüsinasyon (yanlış iddia) oranı. Düşük değer daha iyi (< 0.1 ideal).</p>
+                                <pre>{
+  "hallucination_count": 0,
+  "threshold_bad": 0.3,
+  "threshold_good": 0.1,
+  "total_claims": 16
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#metric2">
+                                validity_rate: 1.00
+                            </button>
+                        </h2>
+                        <div id="metric2" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <p>Geçerli iddiaların oranı. Yüksek değer daha iyi (> 0.8 ideal).</p>
+                                <pre>{
+  "partially_valid_count": 0,
+  "threshold_bad": 0.5,
+  "threshold_good": 0.8,
+  "total_claims": 16,
+  "valid_count": 16
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#metric3">
+                                coverage: 0.67
+                            </button>
+                        </h2>
+                        <div id="metric3" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <p>LLM'nin analiz ettiği kod yapılarının oranı.</p>
+                                <pre>{
+  "mentioned_entities": 8,
+  "mentioned_list": [
+    "multiply",
+    "process_numbers",
+    "generate_report",
+    "add",
+    "_validate",
+    "main",
+    "_log_operation",
+    "save_to_file"
+  ],
+  "total_code_entities": 12
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#metric4">
+                                step_validity: 1.00
+                            </button>
+                        </h2>
+                        <div id="metric4" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <p>Reasoning adımlarının ortalama geçerlilik oranı.</p>
+                                <pre>{
+  "per_step": {
+    "0": {
+      "total_count": 16,
+      "valid_count": 16,
+      "validity_rate": 1.0
+    }
+  },
+  "total_steps": 1
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#metric5">
+                                claim_type_breakdown: 2.00
+                            </button>
+                        </h2>
+                        <div id="metric5" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <p>Claim türlerine göre başarı oranları.</p>
+                                <pre>{
+  "call": {
+    "hallucination_rate": 0.0,
+    "total": 8,
+    "validity_rate": 1.0
+  },
+  "existence": {
+    "hallucination_rate": 0.0,
+    "total": 8,
+    "validity_rate": 1.0
+  }
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#metric6">
+                                confidence_distribution: 1.00
+                            </button>
+                        </h2>
+                        <div id="metric6" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <p>Doğrulama sonuçlarının ortalama güven skoru.</p>
+                                <pre>{
+  "average": 1.0,
+  "distribution": {
+    "high (0.7-1.0)": 16,
+    "low (0-0.3)": 0,
+    "medium (0.3-0.7)": 0
+  },
+  "max": 1.0,
+  "min": 1.0,
+  "total_claims": 16
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#metric7">
+                                chain_coherence: 1.00
+                            </button>
+                        </h2>
+                        <div id="metric7" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <p>Ardışık reasoning adımları arasındaki tutarlılık.</p>
+                                <pre>{
+  "coherent_transitions": 15,
+  "total_transitions": 15
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <div class="container text-center">
+            <p>Graph-Grounded Verification of LLM Reasoning</p>
+            <small>Selen Erdoğan - Gebze Teknik Üniversitesi</small>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Chart.js Grafikleri -->
+    <script>
+        // Sonuç Dağılımı Pasta Grafiği
+        const resultCtx = document.getElementById('resultChart').getContext('2d');
+        new Chart(resultCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Geçerli', 'Halüsinasyon', 'Doğrulanamayan', 'Kısmen Geçerli'],
+                datasets: [{
+                    data: [
+                        16,
+                        0,
+                        0,
+                        0
+                    ],
+                    backgroundColor: ['#28a745', '#dc3545', '#ffc107', '#17a2b8']
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+
+        // Claim Türü Çubuk Grafiği
+        const typeCtx = document.getElementById('typeChart').getContext('2d');
+        new Chart(typeCtx, {
+            type: 'bar',
+            data: {
+                labels: ["existence", "call"],
+                datasets: [{
+                    label: 'Toplam',
+                    data: [8, 8],
+                    backgroundColor: '#6c757d'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    </script>
+</body>
+</html>

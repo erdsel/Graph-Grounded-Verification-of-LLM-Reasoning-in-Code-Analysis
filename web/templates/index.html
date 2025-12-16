@@ -1,0 +1,984 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Kod Analiz Dogrulayici</title>
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- CodeMirror CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.css">
+
+    <!-- vis.js for graph visualization -->
+    <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #10b981;
+            --primary-light: #d1fae5;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --bg-light: #f8fafc;
+            --bg-white: #ffffff;
+            --text-dark: #1e293b;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-light);
+            color: var(--text-dark);
+            min-height: 100vh;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary) 0%, #059669 100%);
+            padding: 1rem 2rem;
+            color: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+        }
+
+        .header .subtitle {
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .provider-select {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
+        .provider-select option {
+            background: white;
+            color: var(--text-dark);
+        }
+
+        .analyze-btn {
+            background: white;
+            color: var(--primary);
+            border: none;
+            padding: 0.6rem 1.5rem;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .analyze-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .analyze-btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Main Layout */
+        .main-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            height: calc(100vh - 70px);
+        }
+
+        /* Panels */
+        .panel {
+            background: var(--bg-white);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            background: var(--bg-light);
+            padding: 0.75rem 1rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-dark);
+        }
+
+        .panel-header i {
+            color: var(--primary);
+        }
+
+        .panel-body {
+            flex: 1;
+            overflow: auto;
+            padding: 1rem;
+        }
+
+        /* Code Editor */
+        .CodeMirror {
+            height: 100%;
+            font-size: 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        /* Score Card - Big Result */
+        .score-card {
+            background: linear-gradient(135deg, var(--primary-light) 0%, #ecfdf5 100%);
+            border-radius: 16px;
+            padding: 1.5rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            border: 2px solid var(--primary);
+        }
+
+        .score-card.success {
+            background: linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%);
+            border-color: var(--success);
+        }
+
+        .score-card.warning {
+            background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%);
+            border-color: var(--warning);
+        }
+
+        .score-card.danger {
+            background: linear-gradient(135deg, #fee2e2 0%, #fef2f2 100%);
+            border-color: var(--danger);
+        }
+
+        .score-title {
+            font-size: 1rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .score-value {
+            font-size: 3rem;
+            font-weight: 800;
+        }
+
+        .score-card.success .score-value { color: var(--success); }
+        .score-card.warning .score-value { color: var(--warning); }
+        .score-card.danger .score-value { color: var(--danger); }
+
+        .score-label {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-top: 0.25rem;
+        }
+
+        /* Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .metric-card {
+            background: var(--bg-light);
+            border-radius: 12px;
+            padding: 1rem;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .metric-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+        }
+
+        .metric-value.green { color: var(--success); }
+        .metric-value.red { color: var(--danger); }
+        .metric-value.orange { color: var(--warning); }
+        .metric-value.blue { color: #3b82f6; }
+
+        .metric-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        /* Graph Container */
+        .graph-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .graph-box {
+            background: var(--bg-light);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+        }
+
+        .graph-title {
+            padding: 0.75rem 1rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .graph-title i { color: var(--primary); }
+
+        .graph-canvas {
+            height: 250px;
+            background: white;
+        }
+
+        /* Comparison List */
+        .comparison-section {
+            margin-bottom: 1rem;
+        }
+
+        .comparison-title {
+            font-weight: 600;
+            font-size: 0.95rem;
+            padding: 0.75rem 1rem;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .comparison-title.success-bg {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .comparison-title.danger-bg {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .comparison-title.warning-bg {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .comparison-list {
+            background: white;
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .comparison-item {
+            display: flex;
+            align-items: center;
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-family: 'Consolas', monospace;
+            font-size: 0.85rem;
+        }
+
+        .comparison-item:last-child {
+            border-bottom: none;
+        }
+
+        .comparison-item .arrow {
+            color: var(--primary);
+            margin: 0 0.5rem;
+        }
+
+        .comparison-item .icon {
+            margin-left: auto;
+        }
+
+        .comparison-item.correct { background: #f0fdf4; }
+        .comparison-item.wrong { background: #fef2f2; }
+        .comparison-item.missed { background: #fffbeb; }
+
+        .badge-count {
+            background: rgba(0,0,0,0.1);
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+
+        /* Tabs */
+        .tab-nav {
+            display: flex;
+            gap: 0.25rem;
+            padding: 0.5rem;
+            background: var(--bg-light);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .tab-btn:hover {
+            background: white;
+            color: var(--text-dark);
+        }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+            height: calc(100% - 45px);
+            overflow: auto;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Loading */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255,255,255,0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 1rem;
+            z-index: 100;
+            border-radius: 12px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Empty State */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.3;
+        }
+
+        /* LLM Response */
+        .llm-response {
+            background: var(--bg-light);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Consolas', monospace;
+            font-size: 0.8rem;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-light);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1><i class="fas fa-microscope me-2"></i>LLM Kod Analiz Dogrulayici</h1>
+                <div class="subtitle">Gercek kod yapisi ile LLM analizini karsilastir</div>
+            </div>
+            <div class="controls">
+                <select id="providerSelect" class="provider-select">
+                    <option value="groq" selected>Groq - Llama 3.3 70B</option>
+                    <option value="gemini">Google Gemini</option>
+                    <option value="mock">Mock (Test)</option>
+                </select>
+                <button id="analyzeBtn" class="analyze-btn" onclick="analyzeCode()">
+                    <i class="fas fa-play"></i>
+                    Analiz Et
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="main-container">
+        <!-- Left Panel: Code Editor -->
+        <div class="panel">
+            <div class="panel-header">
+                <i class="fas fa-code"></i>
+                Python Kodu
+            </div>
+            <div class="panel-body" style="padding: 0;">
+                <textarea id="codeEditor"></textarea>
+            </div>
+        </div>
+
+        <!-- Right Panel: Results -->
+        <div class="panel" style="position: relative;">
+            <div id="loadingOverlay" class="loading-overlay" style="display: none;">
+                <div class="spinner"></div>
+                <div style="color: var(--text-muted);">LLM analiz ediyor...</div>
+            </div>
+
+            <div class="tab-nav">
+                <button class="tab-btn active" onclick="showTab('results')">
+                    <i class="fas fa-chart-bar me-1"></i>Sonuclar
+                </button>
+                <button class="tab-btn" onclick="showTab('graphs')">
+                    <i class="fas fa-project-diagram me-1"></i>Graf Gorsellestirme
+                </button>
+                <button class="tab-btn" onclick="showTab('details')">
+                    <i class="fas fa-list me-1"></i>Detaylar
+                </button>
+            </div>
+
+            <!-- Results Tab -->
+            <div id="results-tab" class="tab-content active">
+                <div class="panel-body">
+                    <div id="resultsContainer">
+                        <div class="empty-state">
+                            <i class="fas fa-arrow-left"></i>
+                            <div><strong>Python kodu yazin</strong></div>
+                            <div>ve "Analiz Et" butonuna tiklayin</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Graphs Tab -->
+            <div id="graphs-tab" class="tab-content">
+                <div class="panel-body">
+                    <div id="graphsContainer">
+                        <div class="empty-state">
+                            <i class="fas fa-project-diagram"></i>
+                            <div>Graf gorsellestirmesi burada gorunecek</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Details Tab -->
+            <div id="details-tab" class="tab-content">
+                <div class="panel-body">
+                    <div id="detailsContainer">
+                        <div class="empty-state">
+                            <i class="fas fa-info-circle"></i>
+                            <div>Detayli bilgiler burada gorunecek</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CodeMirror JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.13/mode/python/python.min.js"></script>
+
+    <script>
+        // CodeMirror editor
+        const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
+            mode: 'python',
+            lineNumbers: true,
+            indentUnit: 4,
+            tabSize: 4,
+            lineWrapping: true,
+            autofocus: true
+        });
+
+        // Sample code
+        const sampleCode = `def main():
+    """Ana fonksiyon."""
+    processor = initialize_system()
+    data = [10, 20, 30, 40, 50]
+
+    result = process_numbers(processor, data)
+    report = generate_report(result)
+
+    print(report)
+    save_to_file(result)
+
+
+def initialize_system():
+    """Sistemi baslatir."""
+    return Calculator()
+
+
+def process_numbers(calc, numbers):
+    """Sayilari isler."""
+    total = 0
+    for num in numbers:
+        total = calc.add(total, num)
+    return total
+
+
+def generate_report(value):
+    """Rapor olusturur."""
+    return f"Sonuc: {value}"
+
+
+def save_to_file(value):
+    """Dosyaya kaydeder."""
+    with open("result.txt", "w") as f:
+        f.write(str(value))
+
+
+class Calculator:
+    """Hesap makinesi sinifi."""
+
+    def __init__(self):
+        self.result = 0
+
+    def add(self, a, b):
+        self.result = a + b
+        self._log("add")
+        return self.result
+
+    def _log(self, operation):
+        print(f"[LOG] {operation}")
+
+
+if __name__ == "__main__":
+    main()
+`;
+
+        editor.setValue(sampleCode);
+
+        // Tab switching
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(tabName + '-tab').classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // Analyze function
+        async function analyzeCode() {
+            const code = editor.getValue();
+            const provider = document.getElementById('providerSelect').value;
+            const btn = document.getElementById('analyzeBtn');
+            const loading = document.getElementById('loadingOverlay');
+
+            if (!code.trim()) {
+                alert('Lutfen kod yazin!');
+                return;
+            }
+
+            btn.disabled = true;
+            loading.style.display = 'flex';
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, use_llm: true, provider })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    renderResults(data);
+                    renderGraphs(data);
+                    renderDetails(data);
+                } else {
+                    alert('Hata: ' + data.error);
+                }
+            } catch (error) {
+                alert('Baglanti hatasi: ' + error.message);
+            } finally {
+                btn.disabled = false;
+                loading.style.display = 'none';
+            }
+        }
+
+        // Render results
+        function renderResults(data) {
+            const container = document.getElementById('resultsContainer');
+            const m = data.metrics;
+            const c = data.comparison;
+
+            // Determine overall score
+            let scoreClass = 'success';
+            let scoreLabel = 'BASARILI';
+            let scoreIcon = 'check-circle';
+
+            if (m.hallucination_rate > 30) {
+                scoreClass = 'danger';
+                scoreLabel = 'DUSUK GUVENILIRLIK';
+                scoreIcon = 'times-circle';
+            } else if (m.hallucination_rate > 10 || m.precision < 70) {
+                scoreClass = 'warning';
+                scoreLabel = 'ORTA GUVENILIRLIK';
+                scoreIcon = 'exclamation-circle';
+            }
+
+            container.innerHTML = `
+                <!-- Main Score -->
+                <div class="score-card ${scoreClass}">
+                    <div class="score-title">LLM Dogruluk Orani</div>
+                    <div class="score-value">
+                        <i class="fas fa-${scoreIcon} me-2"></i>${m.precision}%
+                    </div>
+                    <div class="score-label">${scoreLabel}</div>
+                </div>
+
+                <!-- Metrics -->
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="metric-value green">${m.correct_claims}</div>
+                        <div class="metric-label">Dogru Tespit</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value red">${m.hallucinations}</div>
+                        <div class="metric-label">Halusinasyon</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value orange">${m.missed}</div>
+                        <div class="metric-label">Kacirilan</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-value blue">${m.recall}%</div>
+                        <div class="metric-label">Recall</div>
+                    </div>
+                </div>
+
+                <!-- Correct Detections -->
+                <div class="comparison-section">
+                    <div class="comparison-title success-bg">
+                        <span><i class="fas fa-check-circle me-2"></i>Dogru Tespitler</span>
+                        <span class="badge-count">${c.matched.length}</span>
+                    </div>
+                    <div class="comparison-list">
+                        ${c.matched.length > 0 ? c.matched.map(x => `
+                            <div class="comparison-item correct">
+                                <span>${x.caller}</span>
+                                <span class="arrow"><i class="fas fa-arrow-right"></i></span>
+                                <span>${x.callee}</span>
+                                <span class="icon text-success"><i class="fas fa-check"></i></span>
+                            </div>
+                        `).join('') : '<div class="comparison-item">Henuz yok</div>'}
+                    </div>
+                </div>
+
+                <!-- Hallucinations -->
+                <div class="comparison-section">
+                    <div class="comparison-title danger-bg">
+                        <span><i class="fas fa-times-circle me-2"></i>Halusinasyonlar (LLM Yanlislari)</span>
+                        <span class="badge-count">${c.only_in_llm.length}</span>
+                    </div>
+                    <div class="comparison-list">
+                        ${c.only_in_llm.length > 0 ? c.only_in_llm.map(x => `
+                            <div class="comparison-item wrong">
+                                <span>${x.caller}</span>
+                                <span class="arrow"><i class="fas fa-arrow-right"></i></span>
+                                <span>${x.callee}</span>
+                                <span class="icon text-danger"><i class="fas fa-times"></i></span>
+                            </div>
+                        `).join('') : '<div class="comparison-item">Halusinasyon yok - Harika!</div>'}
+                    </div>
+                </div>
+
+                <!-- Missed -->
+                <div class="comparison-section">
+                    <div class="comparison-title warning-bg">
+                        <span><i class="fas fa-eye-slash me-2"></i>Kacirilanlar (LLM Gormedi)</span>
+                        <span class="badge-count">${c.only_in_truth.length}</span>
+                    </div>
+                    <div class="comparison-list">
+                        ${c.only_in_truth.length > 0 ? c.only_in_truth.map(x => `
+                            <div class="comparison-item missed">
+                                <span>${x.caller}</span>
+                                <span class="arrow"><i class="fas fa-arrow-right"></i></span>
+                                <span>${x.callee}</span>
+                                <span class="icon text-warning"><i class="fas fa-question"></i></span>
+                            </div>
+                        `).join('') : '<div class="comparison-item">Hepsi tespit edildi!</div>'}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Normalize function name (remove class prefix)
+        function normalizeName(name) {
+            if (!name) return name;
+            name = name.toLowerCase().trim();
+            if (name.includes('.')) {
+                return name.split('.').pop();
+            }
+            return name;
+        }
+
+        // Render graphs
+        function renderGraphs(data) {
+            const container = document.getElementById('graphsContainer');
+
+            container.innerHTML = `
+                <div class="graph-container">
+                    <div class="graph-box">
+                        <div class="graph-title">
+                            <i class="fas fa-check-circle"></i>
+                            Gercek Kod Yapisi (Ground Truth)
+                        </div>
+                        <div id="groundTruthGraph" class="graph-canvas"></div>
+                    </div>
+                    <div class="graph-box">
+                        <div class="graph-title">
+                            <i class="fas fa-robot"></i>
+                            LLM'nin Anlayisi
+                        </div>
+                        <div id="llmGraph" class="graph-canvas"></div>
+                    </div>
+                </div>
+                <div class="graph-box">
+                    <div class="graph-title">
+                        <i class="fas fa-balance-scale"></i>
+                        Karsilastirma (Yesil: Dogru, Kirmizi: Halusinasyon, Sari: Kacirilan)
+                    </div>
+                    <div id="comparisonGraph" class="graph-canvas" style="height: 300px;"></div>
+                </div>
+            `;
+
+            // Ground Truth Graph - sadece karşılaştırmada kullanılan edge'ler
+            const gtEdges = data.comparison.matched.concat(data.comparison.only_in_truth);
+            createGraph('groundTruthGraph', gtEdges, '#22c55e');
+
+            // LLM Graph - normalize edilmiş isimlerle
+            const llmEdgesNormalized = data.llm_analysis.function_calls.map(e => ({
+                caller: normalizeName(e.caller),
+                callee: normalizeName(e.callee)
+            }));
+            // Tekrarları kaldır
+            const uniqueLlmEdges = [];
+            const seenLlm = new Set();
+            llmEdgesNormalized.forEach(e => {
+                const key = e.caller + '->' + e.callee;
+                if (!seenLlm.has(key)) {
+                    seenLlm.add(key);
+                    uniqueLlmEdges.push(e);
+                }
+            });
+            createGraph('llmGraph', uniqueLlmEdges, '#3b82f6');
+
+            // Comparison Graph
+            createComparisonGraph('comparisonGraph', data);
+        }
+
+        // Create a network graph
+        function createGraph(containerId, edges, color) {
+            const nodes = new Set();
+            edges.forEach(e => {
+                nodes.add(e.caller);
+                nodes.add(e.callee);
+            });
+
+            const nodesData = Array.from(nodes).map((n, i) => ({
+                id: n,
+                label: n,
+                color: { background: color, border: color },
+                font: { color: '#1e293b', size: 12 }
+            }));
+
+            const edgesData = edges.map(e => ({
+                from: e.caller,
+                to: e.callee,
+                arrows: 'to',
+                color: { color: color }
+            }));
+
+            const container = document.getElementById(containerId);
+            const network = new vis.Network(container, {
+                nodes: new vis.DataSet(nodesData),
+                edges: new vis.DataSet(edgesData)
+            }, {
+                layout: { hierarchical: { direction: 'UD', sortMethod: 'directed' } },
+                physics: false,
+                edges: { smooth: { type: 'cubicBezier' } }
+            });
+        }
+
+        // Create comparison graph
+        function createComparisonGraph(containerId, data) {
+            const nodes = new Set();
+            const edgesData = [];
+
+            // Matched (green)
+            data.comparison.matched.forEach(e => {
+                nodes.add(e.caller);
+                nodes.add(e.callee);
+                edgesData.push({ from: e.caller, to: e.callee, arrows: 'to', color: '#22c55e', width: 2 });
+            });
+
+            // Hallucinations (red)
+            data.comparison.only_in_llm.forEach(e => {
+                nodes.add(e.caller);
+                nodes.add(e.callee);
+                edgesData.push({ from: e.caller, to: e.callee, arrows: 'to', color: '#ef4444', width: 2, dashes: true });
+            });
+
+            // Missed (yellow)
+            data.comparison.only_in_truth.forEach(e => {
+                nodes.add(e.caller);
+                nodes.add(e.callee);
+                edgesData.push({ from: e.caller, to: e.callee, arrows: 'to', color: '#f59e0b', width: 2 });
+            });
+
+            const nodesData = Array.from(nodes).map(n => ({
+                id: n,
+                label: n,
+                color: { background: '#e2e8f0', border: '#64748b' },
+                font: { color: '#1e293b', size: 12 }
+            }));
+
+            const container = document.getElementById(containerId);
+            new vis.Network(container, {
+                nodes: new vis.DataSet(nodesData),
+                edges: new vis.DataSet(edgesData)
+            }, {
+                layout: { hierarchical: { direction: 'UD', sortMethod: 'directed' } },
+                physics: false,
+                edges: { smooth: { type: 'cubicBezier' } }
+            });
+        }
+
+        // Render details
+        function renderDetails(data) {
+            const container = document.getElementById('detailsContainer');
+            const gt = data.ground_truth;
+            const llm = data.llm_analysis;
+
+            container.innerHTML = `
+                <h5 class="mb-3"><i class="fas fa-code me-2 text-success"></i>Kod Yapisi</h5>
+
+                <div class="comparison-section">
+                    <div class="comparison-title success-bg">
+                        <span>Fonksiyonlar</span>
+                        <span class="badge-count">${gt.functions.length}</span>
+                    </div>
+                    <div class="comparison-list">
+                        ${gt.functions.map(f => `
+                            <div class="comparison-item">
+                                <strong>${f.name}</strong>
+                                <span style="margin-left: auto; color: #64748b; font-size: 0.8rem;">
+                                    Satir ${f.line} | Cagiriyor: ${f.calls.length > 0 ? f.calls.join(', ') : 'Yok'}
+                                </span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="comparison-section">
+                    <div class="comparison-title success-bg">
+                        <span>Siniflar</span>
+                        <span class="badge-count">${gt.classes.length}</span>
+                    </div>
+                    <div class="comparison-list">
+                        ${gt.classes.length > 0 ? gt.classes.map(c => `
+                            <div class="comparison-item">
+                                <strong>${c.name}</strong>
+                                <span style="margin-left: auto; color: #64748b; font-size: 0.8rem;">
+                                    Metodlar: ${c.methods.join(', ')}
+                                </span>
+                            </div>
+                        `).join('') : '<div class="comparison-item">Sinif yok</div>'}
+                    </div>
+                </div>
+
+                <h5 class="mb-3 mt-4"><i class="fas fa-robot me-2 text-primary"></i>LLM Ham Ciktisi</h5>
+                <div class="llm-response">${escapeHtml(llm.raw_response)}</div>
+            `;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+    </script>
+</body>
+</html>

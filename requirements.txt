@@ -1,0 +1,33 @@
+# =============================================================================
+# Graph-Grounded LLM Verification Project
+# Gerekli Python Kütüphaneleri
+# =============================================================================
+
+# Graf işleme ve analiz için
+networkx>=3.0
+
+# OpenAI API entegrasyonu (LLM çağrıları için)
+openai>=1.0.0
+
+# Doğal dil işleme (NLP) için
+spacy>=3.5.0
+
+# HTML şablonlama (raporlar için)
+jinja2>=3.0.0
+
+# Görselleştirme
+matplotlib>=3.7.0
+pyvis>=0.3.0
+
+# Fuzzy string matching (entity eşleştirme için)
+fuzzywuzzy>=0.18.0
+python-Levenshtein>=0.20.0
+
+# Ortam değişkenleri yönetimi
+python-dotenv>=1.0.0
+
+# JSON işleme (zaten built-in ama yedek)
+# json - built-in
+
+# AST işleme (zaten built-in)
+# ast - built-in

@@ -1,0 +1,1816 @@
+
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM Doğrulama Raporu</title>
+
+    <!-- Bootstrap CSS (CDN) -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --warning-color: #ffc107;
+            --info-color: #17a2b8;
+        }
+
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 10px;
+            padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .metric-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+        }
+
+        .metric-label {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .status-valid {
+            color: var(--success-color);
+        }
+
+        .status-hallucination {
+            color: var(--danger-color);
+        }
+
+        .status-unverifiable {
+            color: var(--warning-color);
+        }
+
+        .status-partial {
+            color: var(--info-color);
+        }
+
+        .hallucination-card {
+            border-left: 4px solid var(--danger-color);
+            background: #fff5f5;
+        }
+
+        .valid-card {
+            border-left: 4px solid var(--success-color);
+            background: #f0fff4;
+        }
+
+        .claim-table th {
+            background-color: #343a40;
+            color: white;
+        }
+
+        .badge-valid { background-color: var(--success-color); }
+        .badge-hallucination { background-color: var(--danger-color); }
+        .badge-unverifiable { background-color: var(--warning-color); }
+        .badge-partial { background-color: var(--info-color); }
+
+        .assessment-badge {
+            font-size: 1.2rem;
+            padding: 0.5rem 1rem;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 10px;
+            padding: 1rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .recommendation {
+            background: #e7f3ff;
+            border-left: 4px solid #0d6efd;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 0 5px 5px 0;
+        }
+
+        .footer {
+            background: #343a40;
+            color: white;
+            padding: 2rem 0;
+            margin-top: 3rem;
+        }
+
+        pre {
+            background: #f4f4f4;
+            padding: 1rem;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <div class="container">
+            <h1><i class="bi bi-shield-check"></i> LLM Doğrulama Raporu</h1>
+            <p class="mb-0">Graph-Grounded Verification of LLM Reasoning</p>
+            <small>Oluşturulma: 2025-12-13 16:59:33</small>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Genel Değerlendirme -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="metric-card text-center">
+                    <h3>Genel Değerlendirme</h3>
+                    <span class="assessment-badge badge
+                        bg-danger">
+                        ZAYIF
+                    </span>
+                    <p class="mt-2 mb-0">
+                        <strong>45</strong> iddia analiz edildi,
+                        <strong class="text-danger">22</strong> halüsinasyon tespit edildi.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ana Metrikler -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value status-hallucination">
+                        48.9%
+                    </div>
+                    <div class="metric-label">Halüsinasyon Oranı</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value status-valid">
+                        44.4%
+                    </div>
+                    <div class="metric-label">Geçerlilik Oranı</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value text-primary">
+                        20
+                    </div>
+                    <div class="metric-label">Doğrulanan İddia</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="metric-card text-center">
+                    <div class="metric-value text-danger">
+                        22
+                    </div>
+                    <div class="metric-label">Halüsinasyon</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grafikler -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5>Sonuç Dağılımı</h5>
+                    <canvas id="resultChart"></canvas>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="chart-container">
+                    <h5>Claim Türü Analizi</h5>
+                    <canvas id="typeChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Halüsinasyonlar -->
+        
+        <div class="row mb-4">
+            <div class="col-12">
+                <h3 class="text-danger"><i class="bi bi-exclamation-triangle"></i> Tespit Edilen Halüsinasyonlar</h3>
+                <p class="text-muted">LLM'nin yaptığı yanlış veya desteklenmeyen iddialar:</p>
+
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #1 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> çağırıyor: main, write
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> 'write' fonksiyonu kodda tanımlı değil - olası halüsinasyon
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: main
+                                    
+                                    → main
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: write
+                                    
+                                    → EŞLEŞMEDİ
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #2 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> __init__ -> add
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '__init__' fonksiyonu 'add' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: __init__
+                                    
+                                    → __init__
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: add
+                                    
+                                    → add
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #3 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> __init__ -> _log_operation
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '__init__' fonksiyonu '_log_operation' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: __init__
+                                    
+                                    → __init__
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: _log_operation
+                                    
+                                    → _log_operation
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #4 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> __init__ -> _validate
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '__init__' fonksiyonu '_validate' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: __init__
+                                    
+                                    → __init__
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: _validate
+                                    
+                                    → _validate
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #5 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> __init__ -> multiply
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '__init__' fonksiyonu 'multiply' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: __init__
+                                    
+                                    → __init__
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: multiply
+                                    
+                                    → multiply
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #6 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> __init__ -> process_numbers
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '__init__' fonksiyonu 'process_numbers' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: __init__
+                                    
+                                    → __init__
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: process_numbers
+                                    
+                                    → process_numbers
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #7 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> __init__ -> generate_report
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '__init__' fonksiyonu 'generate_report' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: __init__
+                                    
+                                    → __init__
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: generate_report
+                                    
+                                    → generate_report
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #8 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> __init__ -> main
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '__init__' fonksiyonu 'main' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: __init__
+                                    
+                                    → __init__
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: main
+                                    
+                                    → main
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #9 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> __init__ -> save_to_file
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '__init__' fonksiyonu 'save_to_file' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: __init__
+                                    
+                                    → __init__
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: save_to_file
+                                    
+                                    → save_to_file
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #10 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> ÇAĞIRIYOR: _log_operation, process_numbers
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '_log_operation' fonksiyonu 'process_numbers' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: _log_operation
+                                    
+                                    → _log_operation
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: process_numbers
+                                    
+                                    → process_numbers
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #11 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> _validate -> _log_operation
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '_validate' fonksiyonu '_log_operation' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: _validate
+                                    
+                                    → _validate
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: _log_operation
+                                    
+                                    → _log_operation
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #12 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> _validate -> process_numbers
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '_validate' fonksiyonu 'process_numbers' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: _validate
+                                    
+                                    → _validate
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: process_numbers
+                                    
+                                    → process_numbers
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #13 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> _validate -> add
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '_validate' fonksiyonu 'add' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: _validate
+                                    
+                                    → _validate
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: add
+                                    
+                                    → add
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #14 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> _validate -> generate_report
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '_validate' fonksiyonu 'generate_report' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: _validate
+                                    
+                                    → _validate
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: generate_report
+                                    
+                                    → generate_report
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #15 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> _validate -> main
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '_validate' fonksiyonu 'main' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: _validate
+                                    
+                                    → _validate
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: main
+                                    
+                                    → main
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #16 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> _validate -> save_to_file
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '_validate' fonksiyonu 'save_to_file' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: _validate
+                                    
+                                    → _validate
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: save_to_file
+                                    
+                                    → save_to_file
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #17 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> _log_operation -> add
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '_log_operation' fonksiyonu 'add' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: _log_operation
+                                    
+                                    → _log_operation
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: add
+                                    
+                                    → add
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #18 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> _log_operation -> generate_report
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '_log_operation' fonksiyonu 'generate_report' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: _log_operation
+                                    
+                                    → _log_operation
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: generate_report
+                                    
+                                    → generate_report
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #19 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> _log_operation -> main
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '_log_operation' fonksiyonu 'main' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: _log_operation
+                                    
+                                    → _log_operation
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: main
+                                    
+                                    → main
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #20 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> _log_operation -> save_to_file
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: '_log_operation' fonksiyonu 'save_to_file' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: _log_operation
+                                    
+                                    → _log_operation
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: save_to_file
+                                    
+                                    → save_to_file
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #21 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> ÇAĞIRIYOR: process_numbers, generate_report
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: 'process_numbers' fonksiyonu 'generate_report' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: process_numbers
+                                    
+                                    → process_numbers
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: generate_report
+                                    
+                                    → generate_report
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card hallucination-card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-danger">
+                            #22 - call
+                        </h5>
+                        <p class="card-text">
+                            <strong>İddia:</strong> save_to_file -> main
+                        </p>
+                        <p class="card-text">
+                            <strong>Sebep:</strong> HALÜSİNASYON: 'save_to_file' fonksiyonu 'main' fonksiyonunu ÇAĞIRMIYOR
+                        </p>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Özne: save_to_file
+                                    
+                                    → save_to_file
+                                    
+                                </small>
+                            </div>
+                            <div class="col-md-6">
+                                <small class="text-muted">
+                                    Nesne: main
+                                    
+                                    → main
+                                    
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+        
+
+        <!-- Tüm Claim'ler Tablosu -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h3>Tüm İddialar</h3>
+                <div class="table-responsive">
+                    <table class="table table-striped claim-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Tür</th>
+                                <th>İddia</th>
+                                <th>Sonuç</th>
+                                <th>Güven</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            
+                            <tr>
+                                <td>1</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>çağırıyor: Calculator, multiply</td>
+                                <td>
+                                    <span class="badge badge-unverifiable">
+                                        unverifiable
+                                    </span>
+                                </td>
+                                <td>30%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>2</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>çağırıyor: Calculator, write</td>
+                                <td>
+                                    <span class="badge badge-unverifiable">
+                                        unverifiable
+                                    </span>
+                                </td>
+                                <td>30%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>3</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>çağırıyor: write, process_numbers</td>
+                                <td>
+                                    <span class="badge badge-unverifiable">
+                                        unverifiable
+                                    </span>
+                                </td>
+                                <td>30%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>4</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>çağırıyor: main, write</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>80%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>5</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>Calculator sınıfı tanımlanmış</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>6</td>
+                                <td><span class="badge bg-secondary">attribute</span></td>
+                                <td>Calculator has method __init__</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>7</td>
+                                <td><span class="badge bg-secondary">attribute</span></td>
+                                <td>Calculator has method add</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>8</td>
+                                <td><span class="badge bg-secondary">attribute</span></td>
+                                <td>Calculator has method multiply</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>9</td>
+                                <td><span class="badge bg-secondary">attribute</span></td>
+                                <td>Calculator has method _validate</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>10</td>
+                                <td><span class="badge bg-secondary">attribute</span></td>
+                                <td>Calculator has method _log_operation</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>11</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>ÇAĞIRIYOR: add, _log_operation</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>12</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>__init__ -> add</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>13</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>__init__ -> _log_operation</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>14</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>__init__ -> _validate</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>15</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>__init__ -> multiply</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>16</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>__init__ -> process_numbers</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>17</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>__init__ -> generate_report</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>18</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>__init__ -> main</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>19</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>__init__ -> save_to_file</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>20</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>FONKSIYON: __init__</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>21</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>FONKSIYON: add</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>22</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>FONKSIYON: multiply</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>23</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>ÇAĞIRIYOR: _log_operation, process_numbers</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>24</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>_validate -> _log_operation</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>25</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>_validate -> process_numbers</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>26</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>_validate -> add</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>27</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>_validate -> generate_report</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>28</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>_validate -> main</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>29</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>_validate -> save_to_file</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>30</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>FONKSIYON: _validate</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>31</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>ÇAĞIRIYOR: process_numbers, add</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>32</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>_log_operation -> add</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>33</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>_log_operation -> generate_report</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>34</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>_log_operation -> main</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>35</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>_log_operation -> save_to_file</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>36</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>FONKSIYON: _log_operation</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>37</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>FONKSIYON: process_numbers</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>38</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>FONKSIYON: generate_report</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>39</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>ÇAĞIRIYOR: process_numbers, generate_report</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>40</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>main -> process_numbers</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>41</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>main -> generate_report</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>42</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>main -> save_to_file</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>43</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>FONKSIYON: main</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>44</td>
+                                <td><span class="badge bg-secondary">call</span></td>
+                                <td>save_to_file -> main</td>
+                                <td>
+                                    <span class="badge badge-hallucination">
+                                        hallucination
+                                    </span>
+                                </td>
+                                <td>90%</td>
+                            </tr>
+                            
+                            <tr>
+                                <td>45</td>
+                                <td><span class="badge bg-secondary">existence</span></td>
+                                <td>FONKSIYON: save_to_file</td>
+                                <td>
+                                    <span class="badge badge-valid">
+                                        valid
+                                    </span>
+                                </td>
+                                <td>100%</td>
+                            </tr>
+                            
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Öneriler -->
+        
+        <div class="row mb-4">
+            <div class="col-12">
+                <h3><i class="bi bi-lightbulb"></i> Öneriler</h3>
+                
+                <div class="recommendation">⚠️  Yüksek halüsinasyon oranı! LLM çıktılarına güvenmeyin. Daha spesifik promptlar kullanmayı deneyin.</div>
+                
+                <div class="recommendation">❌ Düşük geçerlilik oranı. LLM'nin kod anlayışı yetersiz. Daha basit kod yapıları veya daha güçlü model deneyin.</div>
+                
+                <div class="recommendation">🔍 'call' türündeki iddialar için yüksek hata oranı. Bu tür iddiaları özellikle doğrulayın.</div>
+                
+            </div>
+        </div>
+        
+
+        <!-- Metrik Detayları -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <h3>Detaylı Metrikler</h3>
+                <div class="accordion" id="metricsAccordion">
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#metric1">
+                                hallucination_rate: 0.49
+                            </button>
+                        </h2>
+                        <div id="metric1" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <p>Halüsinasyon (yanlış iddia) oranı. Düşük değer daha iyi (< 0.1 ideal).</p>
+                                <pre>{
+  "hallucination_count": 22,
+  "threshold_bad": 0.3,
+  "threshold_good": 0.1,
+  "total_claims": 45
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#metric2">
+                                validity_rate: 0.44
+                            </button>
+                        </h2>
+                        <div id="metric2" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <p>Geçerli iddiaların oranı. Yüksek değer daha iyi (> 0.8 ideal).</p>
+                                <pre>{
+  "partially_valid_count": 0,
+  "threshold_bad": 0.5,
+  "threshold_good": 0.8,
+  "total_claims": 45,
+  "valid_count": 20
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#metric3">
+                                coverage: 0.83
+                            </button>
+                        </h2>
+                        <div id="metric3" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <p>LLM'nin analiz ettiği kod yapılarının oranı.</p>
+                                <pre>{
+  "mentioned_entities": 10,
+  "mentioned_list": [
+    "Calculator",
+    "multiply",
+    "add",
+    "_validate",
+    "process_numbers",
+    "__init__",
+    "_log_operation",
+    "save_to_file",
+    "main",
+    "generate_report"
+  ],
+  "total_code_entities": 12
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#metric4">
+                                step_validity: 0.50
+                            </button>
+                        </h2>
+                        <div id="metric4" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <p>Reasoning adımlarının ortalama geçerlilik oranı.</p>
+                                <pre>{
+  "per_step": {
+    "2": {
+      "total_count": 1,
+      "valid_count": 0,
+      "validity_rate": 0.0
+    },
+    "5": {
+      "total_count": 1,
+      "valid_count": 0,
+      "validity_rate": 0.0
+    },
+    "9": {
+      "total_count": 1,
+      "valid_count": 0,
+      "validity_rate": 0.0
+    },
+    "10": {
+      "total_count": 1,
+      "valid_count": 0,
+      "validity_rate": 0.0
+    },
+    "11": {
+      "total_count": 6,
+      "valid_count": 6,
+      "validity_rate": 1.0
+    },
+    "13": {
+      "total_count": 10,
+      "valid_count": 2,
+      "validity_rate": 0.2
+    },
+    "14": {
+      "total_count": 1,
+      "valid_count": 1,
+      "validity_rate": 1.0
+    },
+    "15": {
+      "total_count": 1,
+      "valid_count": 1,
+      "validity_rate": 1.0
+    },
+    "16": {
+      "total_count": 8,
+      "valid_count": 1,
+      "validity_rate": 0.125
+    },
+    "17": {
+      "total_count": 6,
+      "valid_count": 2,
+      "validity_rate": 0.3333333333333333
+    },
+    "18": {
+      "total_count": 1,
+      "valid_count": 1,
+      "validity_rate": 1.0
+    },
+    "19": {
+      "total_count": 1,
+      "valid_count": 1,
+      "validity_rate": 1.0
+    },
+    "20": {
+      "total_count": 5,
+      "valid_count": 4,
+      "validity_rate": 0.8
+    },
+    "21": {
+      "total_count": 2,
+      "valid_count": 1,
+      "validity_rate": 0.5
+    }
+  },
+  "total_steps": 14
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#metric5">
+                                claim_type_breakdown: 3.00
+                            </button>
+                        </h2>
+                        <div id="metric5" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <p>Claim türlerine göre başarı oranları.</p>
+                                <pre>{
+  "attribute": {
+    "hallucination_rate": 0.0,
+    "total": 5,
+    "validity_rate": 1.0
+  },
+  "call": {
+    "hallucination_rate": 0.7333333333333333,
+    "total": 30,
+    "validity_rate": 0.16666666666666666
+  },
+  "existence": {
+    "hallucination_rate": 0.0,
+    "total": 10,
+    "validity_rate": 1.0
+  }
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#metric6">
+                                confidence_distribution: 0.90
+                            </button>
+                        </h2>
+                        <div id="metric6" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <p>Doğrulama sonuçlarının ortalama güven skoru.</p>
+                                <pre>{
+  "average": 0.9022222222222223,
+  "distribution": {
+    "high (0.7-1.0)": 42,
+    "low (0-0.3)": 0,
+    "medium (0.3-0.7)": 3
+  },
+  "max": 1.0,
+  "min": 0.3,
+  "total_claims": 45
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#metric7">
+                                chain_coherence: 0.75
+                            </button>
+                        </h2>
+                        <div id="metric7" class="accordion-collapse collapse">
+                            <div class="accordion-body">
+                                <p>Ardışık reasoning adımları arasındaki tutarlılık.</p>
+                                <pre>{
+  "coherent_transitions": 33,
+  "total_transitions": 44
+}</pre>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <div class="container text-center">
+            <p>Graph-Grounded Verification of LLM Reasoning</p>
+            <small>Selen Erdoğan - Gebze Teknik Üniversitesi</small>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Chart.js Grafikleri -->
+    <script>
+        // Sonuç Dağılımı Pasta Grafiği
+        const resultCtx = document.getElementById('resultChart').getContext('2d');
+        new Chart(resultCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Geçerli', 'Halüsinasyon', 'Doğrulanamayan', 'Kısmen Geçerli'],
+                datasets: [{
+                    data: [
+                        20,
+                        22,
+                        3,
+                        0
+                    ],
+                    backgroundColor: ['#28a745', '#dc3545', '#ffc107', '#17a2b8']
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'bottom' }
+                }
+            }
+        });
+
+        // Claim Türü Çubuk Grafiği
+        const typeCtx = document.getElementById('typeChart').getContext('2d');
+        new Chart(typeCtx, {
+            type: 'bar',
+            data: {
+                labels: ["call", "existence", "attribute"],
+                datasets: [{
+                    label: 'Toplam',
+                    data: [30, 10, 5],
+                    backgroundColor: '#6c757d'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
