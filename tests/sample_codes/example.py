@@ -1,7 +1,3 @@
-# =============================================================================
-# ÖRNEK TEST KODU
-# Bu kod, LLM doğrulama sistemini test etmek için kullanılır.
-# =============================================================================
 
 import os
 from typing import List, Optional
