@@ -38,8 +38,7 @@
 9. [Test Senaryolari](#test-senaryolari)
 10. [Deneysel Sonuclar](#sonuclar)
 11. [Bilinen Kisitlamalar](#kisitlamalar)
-12. [Gelecek Calisma](#gelecek-calisma)
-13. [Akademik Referanslar](#referanslar)
+12. [Akademik Referanslar](#referanslar)
 
 ---
 
@@ -377,8 +376,6 @@ def compare_calls(ground_truth, llm_claims):
 | Saglayici | Model | Limit | Maliyet |
 |-----------|-------|-------|---------|
 | **Groq** | Llama 3.3 70B | 30 req/dk | Ucretsiz |
-| **Google** | Gemini 2.0 Flash | 15 req/dk | Ucretsiz |
-| **Mock** | - | Sinirsiz | - (Test) |
 
 ---
 
@@ -488,9 +485,6 @@ client = LLMClient.create(provider="groq", api_key="gsk_xxx")
 
 # Google Gemini
 client = LLMClient.create(provider="gemini", api_key="AIza_xxx")
-
-# Mock (test icin)
-client = LLMClient.create(provider="mock")
 
 # Auto (API key'e gore otomatik secim)
 client = LLMClient.create(provider="auto", api_key="xxx")
@@ -632,7 +626,7 @@ metrics = {
 
 - Python 3.10 veya uzeri
 - pip paket yoneticisi
-- (Opsiyonel) Groq veya Gemini API anahtari
+-  Groq veya Gemini API anahtari
 
 ### 7.2 Adim Adim Kurulum
 
@@ -641,25 +635,25 @@ metrics = {
 git clone https://github.com/username/nlp-proje.git
 cd nlp-proje
 
-# 2. Virtual environment olustur
+# 2. Virtual environment 
 python -m venv venv
 
-# 3. Virtual environment'i aktive et
+# 3. Virtual environment
 # Linux/Mac:
 source venv/bin/activate
 # Windows:
 venv\Scripts\activate
 
-# 4. Bagimliliklari yukle
+# 4. Bagimliliklar
 pip install -r requirements.txt
 
-# 5. API anahtarini ayarla (opsiyonel)
+# 5. API anahtari
 # Linux/Mac:
 export GROQ_API_KEY="gsk_xxxxxxxxxxxxx"
 # Windows:
 set GROQ_API_KEY=gsk_xxxxxxxxxxxxx
 
-# 6. Uygulamayi baslat
+
 python app.py
 ```
 
@@ -957,24 +951,6 @@ LLM'nin ciktisi tamamen model tarafindan belirlenir. Sistemimiz sadece ciktiyi *
 
 ---
 
-<a name="gelecek-calisma"></a>
-## 12. Gelecek Calisma
-
-### 12.1 Kisa Vadeli Iyilestirmeler
-
-1. **Daha Iyi Eslestirme:** Sinif bağlamini koruyan akıllı eslestirme
-2. **Coklu Dil Destegi:** JavaScript, Java, C++ parser'lari
-3. **Incremental Analiz:** Sadece degisen kismin analizi
-4. **Cache Mekanizmasi:** Tekrar eden analizler icin onbellekleme
-
-### 12.2 Uzun Vadeli Hedefler
-
-1. **Dinamik Analiz Entegrasyonu:** Runtime trace ile statik analiz birlestirme
-2. **IDE Eklentisi:** VS Code, PyCharm entegrasyonu
-3. **CI/CD Pipeline:** Otomatik halusinasyon kontrolu
-4. **Benchmark Dataset:** Standart test seti olusturma
-
----
 
 <a name="referanslar"></a>
 ## 13. Akademik Referanslar
